@@ -4,6 +4,9 @@
  * and open the template in the editor.
  */
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -23,6 +26,7 @@ import static org.junit.Assert.*;
 public class BookManagerImplTest {
     
     private BookManagerImpl manager;
+    private Connection conn;
     
     @BeforeClass
     public static void setUpClass() {
@@ -33,12 +37,15 @@ public class BookManagerImplTest {
     }
     
     @Before
-    public void setUp() {
-        manager = new BookManagerImpl();
+    public void setUp() throws SQLException {
+        conn = DriverManager.getConnection("jdbc:derby://localhost:1527/BookEvidance", "helix", "123");
+        manager = new BookManagerImpl(conn);
     }
     
     @After
-    public void tearDown() {
+    public void tearDown() throws SQLException {
+        conn.prepareStatement("DROP TABLE GRAVE").executeUpdate();        
+        conn.close();
     }
 
     @Test
