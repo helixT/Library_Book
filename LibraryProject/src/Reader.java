@@ -33,7 +33,7 @@ public class Reader {
         return adress;
     }
 
-    public Integer getPhone() {
+    public Integer getPhoneNumber() {
         return phoneNumber;
     }
 

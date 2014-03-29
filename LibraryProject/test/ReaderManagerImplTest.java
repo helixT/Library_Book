@@ -4,10 +4,14 @@
  * and open the template in the editor.
  */
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -19,10 +23,23 @@ import static org.junit.Assert.*;
 public class ReaderManagerImplTest {
     
     ReaderManagerImpl manager;
+    private Connection conn;
     
     @Before
-    public void setUp() {
-        manager = new ReaderManagerImpl();
+    public void setUp() throws SQLException {
+        conn = DriverManager.getConnection("jdbc:derby:memory:readerManagerImplDB;create=true");
+        conn.prepareStatement("CREATE TABLE READER ("
+                + "id bigint primary key generated always as identity,"
+                + "fullname varchar(255) not null,"
+                + "adress varchar(255) not null,"
+                + "phonenumber int)").executeUpdate();
+        manager = new ReaderManagerImpl(conn);
+    }
+
+    @After
+    public void tearDown() throws SQLException {
+        conn.prepareStatement("DROP TABLE READER").executeUpdate();        
+        conn.close();
     }
     
     @Test
@@ -105,28 +122,28 @@ public class ReaderManagerImplTest {
         manager.editReader(reader);
         assertEquals("Reader's name isn't same after edit", "Vasek", manager.findReaderById(readerId).getFullName());
         assertEquals("Was updated adress but we want change name", "Botanicka 2", manager.findReaderById(readerId).getAdress());
-        assertEquals("Was updated phone number but we want change name", new Integer(123456789), manager.findReaderById(readerId).getPhone());
+        assertEquals("Was updated phone number but we want change name", new Integer(123456789), manager.findReaderById(readerId).getPhoneNumber());
 
         reader = manager.findReaderById(readerId);
         reader.setAdress("Kounicova 3");
         manager.editReader(reader);
         assertEquals("Was updated name but we want change adress", "Vasek", manager.findReaderById(readerId).getFullName());
         assertEquals("Reader's adress isn't same after edit", "Kounicova 3", manager.findReaderById(readerId).getAdress());
-        assertEquals("Was updated phone number but we want change adress", new Integer(123456789), manager.findReaderById(readerId).getPhone());
+        assertEquals("Was updated phone number but we want change adress", new Integer(123456789), manager.findReaderById(readerId).getPhoneNumber());
 
         reader = manager.findReaderById(readerId);
         reader.setPhoneNumber(987654321);
         manager.editReader(reader);
         assertEquals("Was updated name but we want change phone number", "Vasek", manager.findReaderById(readerId).getFullName());
         assertEquals("Was updated adress but we want change phone number", "Botanicka 2", manager.findReaderById(readerId).getAdress());
-        assertEquals("Reader's phone number isn't same after edit", new Integer(987654321), manager.findReaderById(readerId).getPhone());
+        assertEquals("Reader's phone number isn't same after edit", new Integer(987654321), manager.findReaderById(readerId).getPhoneNumber());
 
         reader = manager.findReaderById(readerId);
         reader.setPhoneNumber(null);
         manager.editReader(reader);
         assertEquals("Was updated name but we want change phone number", "Vasek", manager.findReaderById(readerId).getFullName());
         assertEquals("Was updated adress but we want change phone number", "Botanicka 2", manager.findReaderById(readerId).getAdress());
-        assertNull("Reader's phone number isn't null after edit", manager.findReaderById(readerId).getPhone());
+        assertNull("Reader's phone number isn't null after edit", manager.findReaderById(readerId).getPhoneNumber());
 
         assertAllParametrsEquals(reader2, manager.findReaderById(reader2.getId()));
     }
@@ -318,7 +335,7 @@ public class ReaderManagerImplTest {
         assertEquals("Id of readers isn't same!", expected.getId(), actual.getId());
         assertEquals("Name of readers isn't same!", expected.getFullName(), actual.getFullName());
         assertEquals("Adress of readers isn't same!", expected.getAdress(), actual.getAdress());
-        assertEquals("Phone number of readers isn't same!", expected.getPhone(), actual.getPhone());
+        assertEquals("Phone number of readers isn't same!", expected.getPhoneNumber(), actual.getPhoneNumber());
     }
 
     private void assertAllReadersEquals(List<Reader> expReaders, List<Reader> actualReaders) {
