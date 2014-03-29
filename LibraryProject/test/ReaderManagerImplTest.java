@@ -64,7 +64,7 @@ public class ReaderManagerImplTest {
         try{
            manager.addReader(null);
            fail("You can add null.");
-        } catch(NullPointerException npe){}
+        } catch(IllegalArgumentException iae){}
         
         try{
             manager.addReader(reader);
@@ -119,30 +119,30 @@ public class ReaderManagerImplTest {
         
         Reader reader = manager.findReaderById(readerId);
         reader.setFullName("Vasek");
-        manager.editReader(reader);
+        manager.updateReader(reader);
         assertEquals("Reader's name isn't same after edit", "Vasek", manager.findReaderById(readerId).getFullName());
         assertEquals("Was updated adress but we want change name", "Botanicka 2", manager.findReaderById(readerId).getAdress());
         assertEquals("Was updated phone number but we want change name", new Integer(123456789), manager.findReaderById(readerId).getPhoneNumber());
 
         reader = manager.findReaderById(readerId);
         reader.setAdress("Kounicova 3");
-        manager.editReader(reader);
+        manager.updateReader(reader);
         assertEquals("Was updated name but we want change adress", "Vasek", manager.findReaderById(readerId).getFullName());
         assertEquals("Reader's adress isn't same after edit", "Kounicova 3", manager.findReaderById(readerId).getAdress());
         assertEquals("Was updated phone number but we want change adress", new Integer(123456789), manager.findReaderById(readerId).getPhoneNumber());
 
         reader = manager.findReaderById(readerId);
         reader.setPhoneNumber(987654321);
-        manager.editReader(reader);
+        manager.updateReader(reader);
         assertEquals("Was updated name but we want change phone number", "Vasek", manager.findReaderById(readerId).getFullName());
-        assertEquals("Was updated adress but we want change phone number", "Botanicka 2", manager.findReaderById(readerId).getAdress());
+        assertEquals("Was updated adress but we want change phone number", "Kounicova 3", manager.findReaderById(readerId).getAdress());
         assertEquals("Reader's phone number isn't same after edit", new Integer(987654321), manager.findReaderById(readerId).getPhoneNumber());
 
         reader = manager.findReaderById(readerId);
         reader.setPhoneNumber(null);
-        manager.editReader(reader);
+        manager.updateReader(reader);
         assertEquals("Was updated name but we want change phone number", "Vasek", manager.findReaderById(readerId).getFullName());
-        assertEquals("Was updated adress but we want change phone number", "Botanicka 2", manager.findReaderById(readerId).getAdress());
+        assertEquals("Was updated adress but we want change phone number", "Kounicova 3", manager.findReaderById(readerId).getAdress());
         assertNull("Reader's phone number isn't null after edit", manager.findReaderById(readerId).getPhoneNumber());
 
         assertAllParametrsEquals(reader2, manager.findReaderById(reader2.getId()));
@@ -158,42 +158,35 @@ public class ReaderManagerImplTest {
         Long readerId = reader1.getId();
         
         try{
-            manager.editReader(null);
+            manager.updateReader(null);
             fail("You can edit null!");
         }catch(IllegalArgumentException iae){}
         
         try{
             Reader reader = manager.findReaderById(readerId);
             reader.setId(null);
-            manager.editReader(reader);
+            manager.updateReader(reader);
             fail("You can change id of reader to null!");
         }catch(IllegalArgumentException iae){}
         
         try{
             Reader reader = manager.findReaderById(readerId);
-            reader.setId(new Long(4));
-            manager.editReader(reader);
-            fail("You can change id of reader!");
-        }catch(IllegalArgumentException iae){}
-        
-        try{
-            Reader reader = manager.findReaderById(readerId);
             reader.setFullName(null);
-            manager.editReader(reader);
+            manager.updateReader(reader);
             fail("You can change name of reader to null!");
         }catch(IllegalArgumentException iae){}
         
         try{
             Reader reader = manager.findReaderById(readerId);
             reader.setAdress(null);
-            manager.editReader(reader);
+            manager.updateReader(reader);
             fail("You can change adress of reader to null!");
         }catch(IllegalArgumentException iae){}
         
         try{
             Reader reader = manager.findReaderById(readerId);
             reader.setPhoneNumber(12334);
-            manager.editReader(reader);
+            manager.updateReader(reader);
             fail("You can change phone number of reader to wrong format!");
         }catch(IllegalArgumentException iae){}
     }
@@ -211,7 +204,7 @@ public class ReaderManagerImplTest {
         try{
             manager.deleteReader(null);
             fail("You can delete null from database!");
-        }catch(NullPointerException npe){}
+        }catch(IllegalArgumentException iae){}
         
         try{
             manager.deleteReader(failedReader);
@@ -219,44 +212,12 @@ public class ReaderManagerImplTest {
         } catch(IllegalArgumentException iae){}
         
         manager.deleteReader(reader2);
-        assertNull("Reader does't delete from database", manager.findReaderById(reader2.getId()));
+        assertNull("Reader wasn't delete from database", manager.findReaderById(reader2.getId()));
         List<Reader> readers = manager.findAllReaders();
         assertEquals("Count of readers isn't same!", 1, readers.size());
         Reader returnReader = manager.findReaderById(reader1.getId());
         assertEquals("Reader isn't same!", reader1, returnReader);
         assertAllParametrsEquals(reader1, returnReader);
-        
-        Reader reader = createReader("Franta", "Rusna 3", 564738291);
-        manager.addReader(reader);
-        Long readerId = reader.getId();
-                
-        try{
-            reader = manager.findReaderById(readerId);
-            reader.setId(readerId - 1);
-            manager.deleteReader(reader);
-            fail("You can delete reader with wrong id!");
-        } catch(IllegalArgumentException iae){}
-        
-        try{
-            reader = manager.findReaderById(readerId);
-            reader.setFullName("Pepa");
-            manager.deleteReader(reader);
-            fail("You can delete reader with wrong name!");
-        } catch(IllegalArgumentException iae){}
-        
-        try{
-            reader = manager.findReaderById(readerId);
-            reader.setAdress("Masna 5");
-            manager.deleteReader(reader);
-            fail("You can delete reader with wrong adress!");
-        } catch(IllegalArgumentException iae){}
-        
-        try{
-            reader = manager.findReaderById(readerId);
-            reader.setPhoneNumber(394827104);
-            manager.deleteReader(reader);
-            fail("You can delete reader with wrong phone number!");
-        } catch(IllegalArgumentException iae){}
     }
     
     @Test
@@ -299,7 +260,7 @@ public class ReaderManagerImplTest {
         assertEquals("Reader isn't same!", expReaders, foundedReaders);
         assertAllReadersEquals(expReaders, foundedReaders);
         
-        assertNull("Was founded reader who doesn't exist!", manager.findReaderByName("Karel"));
+        assertEquals("Was founded reader who doesn't exist!", 0, manager.findReaderByName("Karel").size());
         
         try{
             manager.findReaderByName(null);

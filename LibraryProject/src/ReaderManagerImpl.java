@@ -5,6 +5,7 @@
  */
 
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -22,8 +23,11 @@ public class ReaderManagerImpl implements ReaderManager {
     }
 
     @Override
-    public void addReader(Reader reader) {
+    public void addReader(Reader reader) throws ServiceFailureException {
         correctInputReader(reader);
+        if(reader.getId() != null) {
+            throw new IllegalArgumentException("Reader's id isn't null!");            
+        }
         
         try(PreparedStatement st = conn.prepareStatement(
                     "INSERT INTO READER (fullname,adress,phonenumber) VALUES (?,?,?)", Statement.RETURN_GENERATED_KEYS);){
@@ -49,39 +53,62 @@ public class ReaderManagerImpl implements ReaderManager {
     }
 
     @Override
-    public void editReader(Reader reader) {
+    public void updateReader(Reader reader) throws ServiceFailureException {
         correctInputReader(reader);
+        if(reader.getId() == null) {
+            throw new IllegalArgumentException("Readed's id is null!");            
+        }
         
         try(PreparedStatement st = conn.prepareStatement(
-                "UPDATE READER set fullname=?,adress=?,phonenumber=? WHERE id = ?")){
+                "UPDATE READER SET fullname=?,adress=?,phonenumber=? WHERE id=?")){
             
             st.setString(1, reader.getFullName());
             st.setString(2, reader.getAdress());
             if(reader.getPhoneNumber() == null){
                 st.setNull(3, java.sql.Types.INTEGER);
             } else{
-                st.setNull(3, reader.getPhoneNumber());
+                st.setInt(3, reader.getPhoneNumber());
             }
             st.setLong(4, reader.getId());
             
             int updatedRows = st.executeUpdate();
-            if(updatedRows != 1){
-                throw new ServiceFailureException("Error: was update more than one reader.");
+            if((updatedRows != 1) && (updatedRows != 0)){
+                throw new ServiceFailureException("Error: was edit more than one reader.");
             }
                         
         }catch(SQLException ex){
-            throw new ServiceFailureException("Error when updating reader." + reader,ex);
-            
+            throw new ServiceFailureException("Error when editing reader " + reader,ex);
         }
     }
 
     @Override
-    public void deleteReader(Reader reader) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    public void deleteReader(Reader reader) throws ServiceFailureException {
+        if(reader == null){
+            throw new IllegalArgumentException("Input reader is null!");
+        }
+        if(reader.getId() == null){
+            throw new IllegalArgumentException("Input reader's id is null!");
+        }
+        
+        try(PreparedStatement st = conn.prepareStatement("DELETE FROM READER WHERE id=? AND fullname=? AND adress=? AND phonenumber=?")){
+            st.setLong(1, reader.getId());
+            st.setString(2, reader.getFullName());
+            st.setString(3, reader.getAdress());
+            st.setInt(4, reader.getPhoneNumber());
+            
+            int deletedReaders = st.executeUpdate();
+            
+            if((deletedReaders != 1) && (deletedReaders != 0)){
+                throw new ServiceFailureException("Was deleted more than one reader!");
+            }
+            
+        } catch (SQLException ex) {
+            throw new ServiceFailureException("Error when deleting reader " + reader, ex);
+        }
     }
 
     @Override
-    public Reader findReaderById(Long id) {
+    public Reader findReaderById(Long id) throws ServiceFailureException {
         if(id.intValue() <= 0){
             throw new IllegalArgumentException("Input id isn't positive number!");
         }
@@ -107,25 +134,54 @@ public class ReaderManagerImpl implements ReaderManager {
             
         } catch (SQLException ex) {
             throw new ServiceFailureException("Error when finding reader with id " + id, ex);
+        }          
+    }
+
+    @Override
+    public List<Reader> findReaderByName(String name) throws ServiceFailureException {
+        if(name == null){
+            throw new IllegalArgumentException("Input name is null!");
+        }
+        
+        try(PreparedStatement st = conn.prepareStatement(
+                "SELECT id,fullname,adress,phonenumber FROM reader WHERE fullname=?")){
+            
+            st.setString(1, name);
+            ResultSet rs = st.executeQuery();
+            List<Reader> listOfReaders = new ArrayList<>();
+            
+            while(rs.next()){
+                listOfReaders.add(resultToReader(rs));
+            }
+            
+            return listOfReaders;
+        } catch (SQLException ex) {
+            throw new ServiceFailureException("Error when finding readers with name: " + name, ex);
         }
     }
 
     @Override
-    public List<Reader> findReaderByName(String name) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
-    @Override
-    public List<Reader> findAllReaders() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    public List<Reader> findAllReaders() throws ServiceFailureException {
+        
+        try(PreparedStatement st = conn.prepareStatement(
+                "SELECT id,fullname,adress,phonenumber FROM reader")){
+            
+            ResultSet rs = st.executeQuery();
+            List<Reader> listOfReaders = new ArrayList<>();
+            
+            while(rs.next()){
+                listOfReaders.add(resultToReader(rs));
+            }
+            
+            return listOfReaders;
+        } catch (SQLException ex) {
+            throw new ServiceFailureException("Error when finding readers", ex);
+        }
     }
 
     private void correctInputReader(Reader reader) {
         if(reader == null) {
             throw new IllegalArgumentException("Input reader is null");            
-        }
-        if(reader.getId() != null) {
-            throw new IllegalArgumentException("Reader's id isn't null!");            
         }
         if(reader.getFullName() == null) {
             throw new IllegalArgumentException("Reader's name is null");            
@@ -133,11 +189,11 @@ public class ReaderManagerImpl implements ReaderManager {
         if(reader.getAdress() == null) {
             throw new IllegalArgumentException("Reader's adress is null");            
         }
-        if(reader.getPhoneNumber() == null){
+        if(reader.getPhoneNumber() != null){
             if(reader.getPhoneNumber().intValue() <= 0){
                 throw new IllegalArgumentException("Reader's phone number is neative!");
             }
-            if(reader.getPhoneNumber().toString().length() == 9){
+            if(reader.getPhoneNumber().toString().length() != 9){
                 throw new IllegalArgumentException("Reader's phone number hasn't got 9 digits!");
             }
         }
