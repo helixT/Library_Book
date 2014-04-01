@@ -27,7 +27,7 @@ public class ReaderManagerImplTest {
     
     @Before
     public void setUp() throws SQLException {
-        conn = DriverManager.getConnection("jdbc:derby:memory:readerManagerImplDB;create=true");
+        conn = DriverManager.getConnection("jdbc:derby:memory:libraryProject;create=true");
         conn.prepareStatement("CREATE TABLE READER ("
                 + "id bigint primary key generated always as identity,"
                 + "fullname varchar(255) not null,"
