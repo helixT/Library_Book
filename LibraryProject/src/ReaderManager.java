@@ -12,7 +12,7 @@ import java.util.List;
  */
 public interface ReaderManager {
     void addReader(Reader reader);
-    void editReader(Reader reader);
+    void updateReader(Reader reader);
     void deleteReader(Reader reader);
     Reader findReaderById(Long id);
     List<Reader> findReaderByName(String name);
