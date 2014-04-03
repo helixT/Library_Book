@@ -4,13 +4,13 @@
  * and open the template in the editor.
  */
 
-import java.sql.Connection;
-import java.sql.DriverManager;
+import org.apache.commons.dbcp.BasicDataSource;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import javax.sql.DataSource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -22,24 +22,26 @@ import static org.junit.Assert.*;
  */
 public class ReaderManagerImplTest {
     
-    ReaderManagerImpl manager;
-    private Connection conn;
+    private ReaderManagerImpl manager;
+    private DataSource dataSource;
+    
+    private static DataSource prepareDataSource() throws SQLException {
+        BasicDataSource ds = new BasicDataSource();
+        ds.setUrl("jdbc:derby:memory:invoicemgr-test;create=true");
+        return ds;
+    }
     
     @Before
     public void setUp() throws SQLException {
-        conn = DriverManager.getConnection("jdbc:derby:memory:libraryProject;create=true");
-        conn.prepareStatement("CREATE TABLE READER ("
-                + "id bigint primary key generated always as identity,"
-                + "fullname varchar(255) not null,"
-                + "adress varchar(255) not null,"
-                + "phonenumber int)").executeUpdate();
-        manager = new ReaderManagerImpl(conn);
+        dataSource = prepareDataSource();
+        DBUtils.executeSqlScript(dataSource,ReaderManagerImpl.class.getResource("createTables.sql"));
+        manager = new ReaderManagerImpl();
+        manager.setDataSource(dataSource);
     }
 
     @After
     public void tearDown() throws SQLException {
-        conn.prepareStatement("DROP TABLE READER").executeUpdate();        
-        conn.close();
+        DBUtils.executeSqlScript(dataSource,ReaderManagerImpl.class.getResource("dropTables.sql"));
     }
     
     @Test
