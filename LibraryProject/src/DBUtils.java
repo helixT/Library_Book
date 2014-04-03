@@ -24,7 +24,7 @@ public class DBUtils {
      * @param conn connection to close
      * @param statements  statements to close
      */
-    public static void closeQuietly(Connection conn, Statement ... statements) {
+    public static void closeConnection(Connection conn, Statement ... statements) {
         for (Statement st : statements) {
             if (st != null) {
                 try {
@@ -53,7 +53,7 @@ public class DBUtils {
      * 
      * @param conn connection
      */
-    public static void doRollbackQuietly(Connection conn) {
+    public static void doRollback(Connection conn) {
         if (conn != null) {
             try {
                 if (conn.getAutoCommit()) {
@@ -151,7 +151,7 @@ public class DBUtils {
                 }
             }
         } finally {
-            closeQuietly(conn);
+            closeConnection(conn);
         }
     }
 

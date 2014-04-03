@@ -70,8 +70,8 @@ public class ReaderManagerImpl implements ReaderManager {
             logger.log(Level.SEVERE, message, ex);
             throw new ServiceFailureException(message, ex);
         } finally {
-            DBUtils.doRollbackQuietly(conn);
-            DBUtils.closeQuietly(conn, st);
+            DBUtils.doRollback(conn);
+            DBUtils.closeConnection(conn, st);
         }
     }
 
@@ -110,8 +110,8 @@ public class ReaderManagerImpl implements ReaderManager {
             logger.log(Level.SEVERE, message, ex);
             throw new ServiceFailureException(message, ex);
         } finally {
-            DBUtils.doRollbackQuietly(conn);
-            DBUtils.closeQuietly(conn, st);
+            DBUtils.doRollback(conn);
+            DBUtils.closeConnection(conn, st);
         }
     }
 
@@ -148,8 +148,8 @@ public class ReaderManagerImpl implements ReaderManager {
             logger.log(Level.SEVERE, message, ex);
             throw new ServiceFailureException(message, ex);
         } finally {
-            DBUtils.doRollbackQuietly(conn);
-            DBUtils.closeQuietly(conn, st);
+            DBUtils.doRollback(conn);
+            DBUtils.closeConnection(conn, st);
         }
     }
 
@@ -189,7 +189,7 @@ public class ReaderManagerImpl implements ReaderManager {
             logger.log(Level.SEVERE, message, ex);
             throw new ServiceFailureException(message, ex);
         } finally {
-            DBUtils.closeQuietly(conn, st);
+            DBUtils.closeConnection(conn, st);
         }         
     }
 
@@ -221,7 +221,7 @@ public class ReaderManagerImpl implements ReaderManager {
             logger.log(Level.SEVERE, message, ex);
             throw new ServiceFailureException(message, ex);
         } finally {
-            DBUtils.closeQuietly(conn, st);
+            DBUtils.closeConnection(conn, st);
         }  
     }
 
@@ -249,7 +249,7 @@ public class ReaderManagerImpl implements ReaderManager {
             logger.log(Level.SEVERE, message, ex);
             throw new ServiceFailureException(message, ex);
         } finally {
-            DBUtils.closeQuietly(conn, st);
+            DBUtils.closeConnection(conn, st);
         } 
     }
 
