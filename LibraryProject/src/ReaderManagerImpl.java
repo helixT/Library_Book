@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.sql.DataSource;
 
 /**
  *
@@ -16,23 +17,40 @@ import java.util.logging.Logger;
  */
 public class ReaderManagerImpl implements ReaderManager {
     public static final Logger logger = Logger.getLogger(ReaderManagerImpl.class.getName());
-    private Connection conn;
     
-    ReaderManagerImpl(Connection conn){
-        this.conn = conn;
+    private DataSource dataSource;
+
+    public void setDataSource(DataSource dataSource) {
+        this.dataSource = dataSource;
     }
+    
+    private void checkDataSource() {
+        if (dataSource == null) {
+            throw new IllegalStateException("DataSource is not set");
+        }
+    } 
 
     @Override
     public void addReader(Reader reader) throws ServiceFailureException {
+        checkDataSource();
         correctInputReader(reader);
+        
         if(reader.getId() != null) {
             throw new IllegalArgumentException("Reader's id isn't null!");            
         }
         
-        try(PreparedStatement st = conn.prepareStatement(
-                    "INSERT INTO READER (fullname,adress,phonenumber) VALUES (?,?,?)", Statement.RETURN_GENERATED_KEYS);){
+        Connection conn = null;
+        PreparedStatement st = null;
+        
+        try{
+            conn = dataSource.getConnection();
+            conn.setAutoCommit(false); 
+            st = conn.prepareStatement("INSERT INTO READER (fullname,adress,"
+                    + "phonenumber) VALUES (?,?,?)", Statement.RETURN_GENERATED_KEYS);
+            
             st.setString(1, reader.getFullName());
             st.setString(2, reader.getAdress());
+            
             if(reader.getPhoneNumber() == null){
                 st.setNull(3, java.sql.Types.INTEGER);
             } else{
@@ -40,27 +58,38 @@ public class ReaderManagerImpl implements ReaderManager {
             }
             
             int addedRows = st.executeUpdate();
-            if(addedRows != 1){
-                throw new ServiceFailureException("More rows inserted when tryig insert reader" + reader);
-            }
+            DBUtils.checkUpdatesCount(addedRows, reader, true);
+
+            Long id = DBUtils.getId(st.getGeneratedKeys());
+            reader.setId(id);
             
-            ResultSet keys = st.getGeneratedKeys();
-            reader.setId(getKey(keys,reader));
+            conn.commit();
             
         } catch (SQLException ex) {
-            throw new ServiceFailureException("Error when inserting reader " + reader, ex);
+            String message = "Error when inserting reader" + reader;
+            logger.log(Level.SEVERE, message, ex);
+            throw new ServiceFailureException(message, ex);
+        } finally {
+            DBUtils.doRollbackQuietly(conn);
+            DBUtils.closeQuietly(conn, st);
         }
     }
 
     @Override
     public void updateReader(Reader reader) throws ServiceFailureException {
+        checkDataSource();
         correctInputReader(reader);
         if(reader.getId() == null) {
             throw new IllegalArgumentException("Readed's id is null!");            
         }
         
-        try(PreparedStatement st = conn.prepareStatement(
-                "UPDATE READER SET fullname=?,adress=?,phonenumber=? WHERE id=?")){
+        Connection conn = null;
+        PreparedStatement st = null;
+        
+        try{
+            conn = dataSource.getConnection();
+            conn.setAutoCommit(false); 
+            st = conn.prepareStatement("UPDATE READER SET fullname=?,adress=?,phonenumber=? WHERE id=?");
             
             st.setString(1, reader.getFullName());
             st.setString(2, reader.getAdress());
@@ -72,17 +101,23 @@ public class ReaderManagerImpl implements ReaderManager {
             st.setLong(4, reader.getId());
             
             int updatedRows = st.executeUpdate();
-            if((updatedRows != 1) && (updatedRows != 0)){
-                throw new ServiceFailureException("Error: was edit more than one reader.");
-            }
+            DBUtils.checkUpdatesCount(updatedRows, reader, false);
+            
+            conn.commit();
                         
         }catch(SQLException ex){
-            throw new ServiceFailureException("Error when editing reader " + reader,ex);
+            String message = "Error when updating reader" + reader;
+            logger.log(Level.SEVERE, message, ex);
+            throw new ServiceFailureException(message, ex);
+        } finally {
+            DBUtils.doRollbackQuietly(conn);
+            DBUtils.closeQuietly(conn, st);
         }
     }
 
     @Override
     public void deleteReader(Reader reader) throws ServiceFailureException {
+        checkDataSource();
         if(reader == null){
             throw new IllegalArgumentException("Input reader is null!");
         }
@@ -90,31 +125,48 @@ public class ReaderManagerImpl implements ReaderManager {
             throw new IllegalArgumentException("Input reader's id is null!");
         }
         
-        try(PreparedStatement st = conn.prepareStatement("DELETE FROM READER WHERE id=? AND fullname=? AND adress=? AND phonenumber=?")){
+        Connection conn = null;
+        PreparedStatement st = null;
+        
+        try{
+            conn = dataSource.getConnection();
+            conn.setAutoCommit(false); 
+            st = conn.prepareStatement("DELETE FROM READER WHERE id=? AND fullname=? AND adress=? AND phonenumber=?");
+            
             st.setLong(1, reader.getId());
             st.setString(2, reader.getFullName());
             st.setString(3, reader.getAdress());
             st.setInt(4, reader.getPhoneNumber());
             
-            int deletedReaders = st.executeUpdate();
+            int deletedRows = st.executeUpdate();
+            DBUtils.checkUpdatesCount(deletedRows, reader, false);
             
-            if((deletedReaders != 1) && (deletedReaders != 0)){
-                throw new ServiceFailureException("Was deleted more than one reader!");
-            }
+            conn.commit();
             
         } catch (SQLException ex) {
-            throw new ServiceFailureException("Error when deleting reader " + reader, ex);
+            String message = "Error when deleting reader" + reader;
+            logger.log(Level.SEVERE, message, ex);
+            throw new ServiceFailureException(message, ex);
+        } finally {
+            DBUtils.doRollbackQuietly(conn);
+            DBUtils.closeQuietly(conn, st);
         }
     }
 
     @Override
     public Reader findReaderById(Long id) throws ServiceFailureException {
+        checkDataSource();
         if(id.intValue() <= 0){
             throw new IllegalArgumentException("Input id isn't positive number!");
         }
         
-        try(PreparedStatement st = conn.prepareStatement(
-                "SELECT id,fullname,adress,phonenumber FROM reader WHERE id=?")){
+        Connection conn = null;
+        PreparedStatement st = null;
+        
+        try{
+            conn = dataSource.getConnection();
+            st = conn.prepareStatement("SELECT id,fullname,adress,phonenumber FROM reader WHERE id=?");
+            
             st.setLong(1, id);
             ResultSet rs = st.executeQuery();
             
@@ -133,18 +185,27 @@ public class ReaderManagerImpl implements ReaderManager {
             }
             
         } catch (SQLException ex) {
-            throw new ServiceFailureException("Error when finding reader with id " + id, ex);
-        }          
+            String message = "Error when finding reader by " + id;
+            logger.log(Level.SEVERE, message, ex);
+            throw new ServiceFailureException(message, ex);
+        } finally {
+            DBUtils.closeQuietly(conn, st);
+        }         
     }
 
     @Override
     public List<Reader> findReaderByName(String name) throws ServiceFailureException {
+        checkDataSource();
         if(name == null){
             throw new IllegalArgumentException("Input name is null!");
         }
         
-        try(PreparedStatement st = conn.prepareStatement(
-                "SELECT id,fullname,adress,phonenumber FROM reader WHERE fullname=?")){
+        Connection conn = null;
+        PreparedStatement st = null;
+        
+        try{
+            conn = dataSource.getConnection();
+            st = conn.prepareStatement("SELECT id,fullname,adress,phonenumber FROM reader WHERE fullname=?");
             
             st.setString(1, name);
             ResultSet rs = st.executeQuery();
@@ -156,15 +217,24 @@ public class ReaderManagerImpl implements ReaderManager {
             
             return listOfReaders;
         } catch (SQLException ex) {
-            throw new ServiceFailureException("Error when finding readers with name: " + name, ex);
-        }
+            String message = "Error when finding reader name " + name;
+            logger.log(Level.SEVERE, message, ex);
+            throw new ServiceFailureException(message, ex);
+        } finally {
+            DBUtils.closeQuietly(conn, st);
+        }  
     }
 
     @Override
     public List<Reader> findAllReaders() throws ServiceFailureException {
+        checkDataSource();
         
-        try(PreparedStatement st = conn.prepareStatement(
-                "SELECT id,fullname,adress,phonenumber FROM reader")){
+        Connection conn = null;
+        PreparedStatement st = null;
+        
+        try{
+            conn = dataSource.getConnection();
+            st = conn.prepareStatement("SELECT id,fullname,adress,phonenumber FROM reader");
             
             ResultSet rs = st.executeQuery();
             List<Reader> listOfReaders = new ArrayList<>();
@@ -175,8 +245,12 @@ public class ReaderManagerImpl implements ReaderManager {
             
             return listOfReaders;
         } catch (SQLException ex) {
-            throw new ServiceFailureException("Error when finding readers", ex);
-        }
+            String message = "Error when finding readers";
+            logger.log(Level.SEVERE, message, ex);
+            throw new ServiceFailureException(message, ex);
+        } finally {
+            DBUtils.closeQuietly(conn, st);
+        } 
     }
 
     private void correctInputReader(Reader reader) {
@@ -196,27 +270,6 @@ public class ReaderManagerImpl implements ReaderManager {
             if(reader.getPhoneNumber().toString().length() != 9){
                 throw new IllegalArgumentException("Reader's phone number hasn't got 9 digits!");
             }
-        }
-    }
-    
-    private Long getKey(ResultSet keys, Reader reader) throws ServiceFailureException, SQLException {
-        if (keys.next()) {
-            if (keys.getMetaData().getColumnCount() != 1) {
-                throw new ServiceFailureException("Internal Error: Generated key"
-                        + "retriving failed when trying to insert reader " + reader
-                        + " - wrong key fields count: " + keys.getMetaData().getColumnCount());
-            }
-            Long result = keys.getLong(1);
-            if (keys.next()) {
-                throw new ServiceFailureException("Internal Error: Generated key"
-                        + "retriving failed when trying to insert reader " + reader
-                        + " - more keys found");
-            }
-            return result;
-        } else {
-            throw new ServiceFailureException("Internal Error: Generated key"
-                    + "retriving failed when trying to insert reader " + reader
-                    + " - no key found");
         }
     }
     

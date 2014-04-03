@@ -1,6 +1,5 @@
 
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -9,7 +8,9 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.sql.DataSource;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -24,50 +25,75 @@ import java.util.logging.Logger;
 public class BorrowingManagerImpl implements BorrowingManager{
 
     public static final Logger logger = Logger.getLogger(BorrowingManagerImpl.class.getName());
-    private Connection conn;
-    
-    BorrowingManagerImpl(Connection conn){
-        this.conn = conn;
+    private DataSource dataSource;
+
+    public void setDataSource(DataSource dataSource) {
+        this.dataSource = dataSource;
     }
+    
+    private void checkDataSource() {
+        if (dataSource == null) {
+            throw new IllegalStateException("DataSource is not set");
+        }
+    } 
 
     @Override
     public void addBorrowing(Borrowing borrowing) throws ServiceFailureException {
+        checkDataSource();
         correctInputBorrowing(borrowing);
+        
         if(borrowing.getId() != null) {
             throw new IllegalArgumentException("Borrowing's id isn't null!");            
         }
         
-        try(PreparedStatement st = conn.prepareStatement(
-                    "INSERT INTO BORROWING (bookborrowedfrom,bookborrowedto,readerid,bookid)"
-                            + " VALUES (?,?,?,?)", Statement.RETURN_GENERATED_KEYS);){
+        Connection conn = null;
+        PreparedStatement st = null;
+        
+        try{
+            conn = dataSource.getConnection();
+            conn.setAutoCommit(false); 
+            st = conn.prepareStatement("INSERT INTO BORROWING (bookborrowedfrom,bookborrowedto,readerid,bookid)"
+                    + " VALUES (?,?,?,?)", Statement.RETURN_GENERATED_KEYS);
+            
             st.setTimestamp(1, new Timestamp(borrowing.getBookBorrowedFrom().getTimeInMillis()));
             st.setTimestamp(2, new Timestamp(borrowing.getBookBorrowedTo().getTimeInMillis()));
             st.setLong(3, borrowing.getReader().getId());
             st.setLong(4, borrowing.getBook().getId());
             
             int addedRows = st.executeUpdate();
-            if(addedRows != 1){
-                throw new ServiceFailureException("More rows inserted when tryig insert reader" + borrowing);
-            }
+            DBUtils.checkUpdatesCount(addedRows, borrowing, true);
             
-            ResultSet keys = st.getGeneratedKeys();
-            borrowing.setId(getKey(keys,borrowing));
+            Long id = DBUtils.getId(st.getGeneratedKeys());
+            borrowing.setId(id);
             
         } catch (SQLException ex) {
-            throw new ServiceFailureException("Error when inserting borrowing " + borrowing, ex);
+            String message = "Error when inserting borrowing " + borrowing;
+            logger.log(Level.SEVERE, message, ex);
+            throw new ServiceFailureException(message, ex);
+        } finally {
+            DBUtils.doRollbackQuietly(conn);
+            DBUtils.closeQuietly(conn, st);
         }
     }
 
     @Override
-    public void updateBorrowing(Borrowing borrowing) throws ServiceFailureException  {
+    public void updateBorrowing(Borrowing borrowing) throws ServiceFailureException {
+        checkDataSource();
         correctInputBorrowing(borrowing);
+        
         if(borrowing.getId() == null){
             throw new IllegalArgumentException("Borrowing's id isn't set!");
         }
         
-        try(PreparedStatement st = conn.prepareStatement(
-                    "UPDATE BORROWING SET bookborrowedfrom=?,bookborrowedto=?,readerid=?,bookid=?"
-                            + " WHERE id=?");){
+        Connection conn = null;
+        PreparedStatement st = null;
+        
+        try{
+            conn = dataSource.getConnection();
+            conn.setAutoCommit(false); 
+            st = conn.prepareStatement("UPDATE BORROWING SET bookborrowedfrom=?,"
+                    + "bookborrowedto=?,readerid=?,bookid=? WHERE id=?");
+            
             st.setTimestamp(1, new Timestamp(borrowing.getBookBorrowedFrom().getTimeInMillis()));
             st.setTimestamp(2, new Timestamp(borrowing.getBookBorrowedTo().getTimeInMillis()));
             st.setLong(3, borrowing.getReader().getId());
@@ -75,17 +101,21 @@ public class BorrowingManagerImpl implements BorrowingManager{
             st.setLong(5, borrowing.getId());
             
             int updatedRows = st.executeUpdate();
-            if((updatedRows != 1) && (updatedRows != 0)){
-                throw new ServiceFailureException("Error: was edit more than one borrowing!");
-            }
+            DBUtils.checkUpdatesCount(updatedRows, borrowing, false);
             
         } catch (SQLException ex) {
-            throw new ServiceFailureException("Error when updating borrowing " + borrowing, ex);
+            String message = "Error when updating borrowing " + borrowing;
+            logger.log(Level.SEVERE, message, ex);
+            throw new ServiceFailureException(message, ex);
+        } finally {
+            DBUtils.doRollbackQuietly(conn);
+            DBUtils.closeQuietly(conn, st);
         }
     }
 
     @Override
     public void deleteBorrowing(Borrowing borrowing) throws ServiceFailureException {
+        checkDataSource();
         if(borrowing == null){
             throw new IllegalArgumentException("Input borrowing is null!");
         }
@@ -93,29 +123,46 @@ public class BorrowingManagerImpl implements BorrowingManager{
             throw new IllegalArgumentException("Input borrowing's id is null!");
         }
         
-        try(PreparedStatement st = conn.prepareStatement("DELETE FROM BORROWING "
-                + "WHERE id=? AND bookborrowedfrom=? AND bookborrowedto=? AND readerid=? AND bookid=?")){
+        Connection conn = null;
+        PreparedStatement st = null;
+        
+        try{
+            conn = dataSource.getConnection();
+            conn.setAutoCommit(false); 
+            st = conn.prepareStatement("DELETE FROM BORROWING WHERE id=? AND "
+                    + "bookborrowedfrom=? AND bookborrowedto=? AND readerid=? AND bookid=?");
+            
             st.setLong(1, borrowing.getId());
             st.setTimestamp(2, new Timestamp(borrowing.getBookBorrowedFrom().getTimeInMillis()));
             st.setTimestamp(3, new Timestamp(borrowing.getBookBorrowedTo().getTimeInMillis()));
             st.setLong(4, borrowing.getReader().getId());
             st.setLong(5, borrowing.getBook().getId());
             
-            int deletedReaders = st.executeUpdate();
+            int deletedRows = st.executeUpdate();
+            DBUtils.checkUpdatesCount(deletedRows, borrowing, false);
             
-            if((deletedReaders != 1) && (deletedReaders != 0)){
-                throw new ServiceFailureException("Was deleted more than one borrowing!");
-            }
+            conn.commit();
             
         } catch (SQLException ex) {
-            throw new ServiceFailureException("Error when deleting reader " + borrowing, ex);
+            String message = "Error when deleting borrowing " + borrowing;
+            logger.log(Level.SEVERE, message, ex);
+            throw new ServiceFailureException(message, ex);
+        } finally {
+            DBUtils.doRollbackQuietly(conn);
+            DBUtils.closeQuietly(conn, st);
         }
     }
 
     @Override
     public List<Borrowing> findAllBorrowing() {
-        try(PreparedStatement st = conn.prepareStatement(
-                "SELECT id,bookborrowedfrom,bookborrowedto,readerid,bookid FROM BORROWING")){
+        checkDataSource();
+        
+        Connection conn = null;
+        PreparedStatement st = null;
+        
+        try{
+            conn = dataSource.getConnection();
+            st = conn.prepareStatement("SELECT id,bookborrowedfrom,bookborrowedto,readerid,bookid FROM BORROWING");
             
             ResultSet rs = st.executeQuery();
             List<Borrowing> listOfBorrowings = new ArrayList<>();
@@ -126,18 +173,30 @@ public class BorrowingManagerImpl implements BorrowingManager{
             
             return listOfBorrowings;
         } catch (SQLException ex) {
-            throw new ServiceFailureException("Error when finding Borrowings", ex);
+            String message = "Error when finding all borrowings";
+            logger.log(Level.SEVERE, message, ex);
+            throw new ServiceFailureException(message, ex);
+        } finally {
+            DBUtils.closeQuietly(conn, st);
         }
     }
 
     @Override
     public Borrowing findBorrowingById(Long id) {
+        checkDataSource();
+        
         if(id.intValue() <= 0){
             throw new IllegalArgumentException("Input id isn't positive number!");
         }
         
-        try(PreparedStatement st = conn.prepareStatement(
-                "SELECT id,bookborrowedfrom,bookborrowedto,readerid,bookid FROM BORROWING WHERE id=?")){
+        Connection conn = null;
+        PreparedStatement st = null;
+        
+        try{
+            conn = dataSource.getConnection();
+            st = conn.prepareStatement("SELECT id,bookborrowedfrom,bookborrowedto,"
+                    + "readerid,bookid FROM BORROWING WHERE id=?");
+            
             st.setLong(1, id);
             ResultSet rs = st.executeQuery();
             
@@ -156,18 +215,29 @@ public class BorrowingManagerImpl implements BorrowingManager{
             }
             
         } catch (SQLException ex) {
-            throw new ServiceFailureException("Error when finding borrowing with id " + id, ex);
+            String message = "Error when finding borrowing by id " + id;
+            logger.log(Level.SEVERE, message, ex);
+            throw new ServiceFailureException(message, ex);
+        } finally {
+            DBUtils.closeQuietly(conn, st);
         }
     }
 
     @Override
     public List<Borrowing> findBorrowingByReader(Reader reader) {
+        checkDataSource();
+        
         if(reader == null){
             throw new IllegalArgumentException("Input reader is null!");
         }
         
-        try(PreparedStatement st = conn.prepareStatement(
-                "SELECT id,bookborrowedfrom,bookborrowedto,readerid,bookid FROM BORROWING WHERE readerid=?")){
+        Connection conn = null;
+        PreparedStatement st = null;
+        
+        try{
+            conn = dataSource.getConnection();
+            st = conn.prepareStatement("SELECT id,bookborrowedfrom,bookborrowedto,"
+                    + "readerid,bookid FROM BORROWING WHERE readerid=?");
             
             st.setLong(1, reader.getId());
             ResultSet rs = st.executeQuery();
@@ -179,7 +249,11 @@ public class BorrowingManagerImpl implements BorrowingManager{
             
             return listOfBorrowings;
         } catch (SQLException ex) {
-            throw new ServiceFailureException("Error when finding Borrowings with reader: " + reader, ex);
+            String message = "Error when finding borrowings by name " + reader;
+            logger.log(Level.SEVERE, message, ex);
+            throw new ServiceFailureException(message, ex);
+        } finally {
+            DBUtils.closeQuietly(conn, st);
         }
     }
 
@@ -200,27 +274,6 @@ public class BorrowingManagerImpl implements BorrowingManager{
             throw new IllegalArgumentException("The book that is borrowed isn't set!");
         }
     }
-
-    private Long getKey(ResultSet keys, Borrowing borrowing) throws SQLException {
-        if (keys.next()) {
-            if (keys.getMetaData().getColumnCount() != 1) {
-                throw new ServiceFailureException("Internal Error: Generated key"
-                        + "retriving failed when trying to insert reader " + borrowing
-                        + " - wrong key fields count: " + keys.getMetaData().getColumnCount());
-            }
-            Long result = keys.getLong(1);
-            if (keys.next()) {
-                throw new ServiceFailureException("Internal Error: Generated key"
-                        + "retriving failed when trying to insert reader " + borrowing
-                        + " - more keys found");
-            }
-            return result;
-        } else {
-            throw new ServiceFailureException("Internal Error: Generated key"
-                    + "retriving failed when trying to insert reader " + borrowing
-                    + " - no key found");
-        }
-    }
     
     private Borrowing resultToBorrowing(ResultSet rs) throws SQLException {
         Borrowing borrowing = new Borrowing();
@@ -234,11 +287,13 @@ public class BorrowingManagerImpl implements BorrowingManager{
         cal.setTimeInMillis(rs.getTimestamp("bookborrowedTo").getTime());
         borrowing.setBookBorrowedTo(cal);
         
-        ReaderManager managerOfReaders = new ReaderManagerImpl(conn);
+        ReaderManagerImpl managerOfReaders = new ReaderManagerImpl();
+        managerOfReaders.setDataSource(dataSource);
         Reader reader = managerOfReaders.findReaderById(rs.getLong("readerid"));
         borrowing.setReader(reader);
         
-        BookManager managerOfBooks = new BookManagerImpl(conn);
+        BookManagerImpl managerOfBooks = new BookManagerImpl();
+        managerOfBook.setDataSource(dataSource);
         Book book = managerOfBooks.getBookById(rs.getLong("bookid"));
         borrowing.setBook(book);
         
