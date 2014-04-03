@@ -14,9 +14,8 @@ import java.util.Objects;
  */
 public class Borrowing {
     Long id;
-    Calendar borrowedFrom;
-    Calendar borrowedTo;
-    Calendar expectedBorrowedTo;
+    Calendar bookBorrowedFrom;
+    Calendar bookBorrowedTo;
     Reader reader;
     Book book;
 
@@ -24,16 +23,12 @@ public class Borrowing {
         return id;
     }
 
-    public Calendar getBorrowedFrom() {
-        return borrowedFrom;
+    public Calendar getBookBorrowedFrom() {
+        return bookBorrowedFrom;
     }
 
-    public Calendar getBorrowedTo() {
-        return borrowedTo;
-    }
-
-    public Calendar getExpectedBorrowedTo() {
-        return expectedBorrowedTo;
+    public Calendar getBookBorrowedTo() {
+        return bookBorrowedTo;
     }
 
     public Reader getReader() {
@@ -48,16 +43,12 @@ public class Borrowing {
         this.id = id;
     }
 
-    public void setBorrowedFrom(Calendar borrowedFrom) {
-        this.borrowedFrom = borrowedFrom;
+    public void setBookBorrowedFrom(Calendar bookBorrowedFrom) {
+        this.bookBorrowedFrom = bookBorrowedFrom;
     }
 
-    public void setBorrowedTo(Calendar borrowedTo) {
-        this.borrowedTo = borrowedTo;
-    }
-
-    public void setExpectedBorrowedTo(Calendar expectedBorrowedTo) {
-        this.expectedBorrowedTo = expectedBorrowedTo;
+    public void setBookBorrowedTo(Calendar bookBorrowedTo) {
+        this.bookBorrowedTo = bookBorrowedTo;
     }
 
     public void setReader(Reader reader) {
@@ -89,6 +80,6 @@ public class Borrowing {
 
     @Override
     public String toString() {
-        return "Borrowing{" + "id=" + id + ", borrowedFrom=" + borrowedFrom + ", borrowedTo=" + borrowedTo + ", expectedBorrowedTo=" + expectedBorrowedTo + ", reader=" + reader + ", book=" + book + '}';
+        return "Borrowing{" + "id=" + id + ", borrowedFrom=" + bookBorrowedFrom + ", borrowedTo=" + bookBorrowedTo + ", reader=" + reader + ", book=" + book + '}';
     }
 }
