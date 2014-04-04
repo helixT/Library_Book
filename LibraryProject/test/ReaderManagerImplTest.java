@@ -26,22 +26,22 @@ public class ReaderManagerImplTest {
     private DataSource dataSource;
     
     private static DataSource prepareDataSource() throws SQLException {
-        BasicDataSource ds = new BasicDataSource();
-        ds.setUrl("jdbc:derby:memory:invoicemgr-test;create=true");
-        return ds;
+        BasicDataSource dataSource = new BasicDataSource();
+        dataSource.setUrl("jdbc:derby:memory:libraryProject;create=true");
+        return dataSource;
     }
     
     @Before
     public void setUp() throws SQLException {
         dataSource = prepareDataSource();
-        DBUtils.executeSqlScript(dataSource,ReaderManagerImpl.class.getResource("createTables.sql"));
+        DBUtils.executeSqlScript(dataSource, ReaderManager.class.getResource("createTables.sql"));
         manager = new ReaderManagerImpl();
         manager.setDataSource(dataSource);
     }
 
     @After
     public void tearDown() throws SQLException {
-        DBUtils.executeSqlScript(dataSource,ReaderManagerImpl.class.getResource("dropTables.sql"));
+        DBUtils.executeSqlScript(dataSource, ReaderManager.class.getResource("dropTables.sql"));
     }
     
     @Test
